@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Pengumpulan Laporan Praktikum</title>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+      .loader {
+        border-top-color: #3498db;
+        -webkit-animation: spinner 1.5s linear infinite;
+        animation: spinner 1.5s linear infinite;
+      }
+      @-webkit-keyframes spinner {
+        0% {
+          -webkit-transform: rotate(0deg);
+        }
+        100% {
+          -webkit-transform: rotate(360deg);
+        }
+      }
+      @keyframes spinner {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      .dashboard-card {
+        transition: all 0.3s;
+      }
+      .dashboard-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+      }
+      .toggle-btn {
+        transition: all 0.3s;
+      }
+      .toggle-btn:hover {
+        transform: scale(1.05);
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 font-sans">
+    <!-- Header -->
+    <header
+      class="bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-lg"
+    >
+      <div class="container mx-auto px-4 py-6">
+        <div class="flex flex-col md:flex-row justify-between items-center">
+          <div class="flex items-center mb-4 md:mb-0">
+            <i class="fas fa-chart-line text-3xl mr-3"></i>
+            <div>
+              <h1 class="text-2xl font-bold">Dashboard Pengumpulan Laporan</h1>
+              <p class="text-blue-200">
+                Praktikum Business Intelligence Prodi Bisnis Digital
+              </p>
+            </div>
+          </div>
+          <div
+            class="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4"
+          >
+            <button
+              id="refreshBtn"
+              class="bg-white text-blue-800 hover:bg-blue-100 px-4 py-2 rounded-lg flex items-center font-medium transition duration-300"
+            >
+              <i class="fas fa-sync-alt mr-2"></i> Refresh Data
+            </button>
+            <button
+              id="settingsBtn"
+              class="bg-transparent border border-white text-white hover:bg-white hover:text-blue-800 px-4 py-2 rounded-lg flex items-center font-medium transition duration-300"
+            >
+              <i class="fas fa-cog mr-2"></i> Pengaturan
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+      <!-- File Upload Section -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">
+          Upload File Data
+        </h2>
+        <div class="flex flex-col md:flex-row gap-4">
+          <div class="w-full mt-4 flex flex-col md:flex-row gap-3">
+            <button
+              id="exportJsonBtn"
+              class="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition duration-300 flex items-center justify-center"
+            >
+              <i class="fas fa-download mr-2"></i>Ekspor JSON
+            </button>
+            <button
+              id="importJsonBtn"
+              class="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-purple-700 transition duration-300 flex items-center justify-center"
+            >
+              <i class="fas fa-upload mr-2"></i>Impor JSON
+            </button>
+            <input
+              type="file"
+              id="jsonFileInput"
+              accept=".json"
+              class="hidden"
+            />
+          </div>
+          <div class="w-full md:w-2/3">
+            <div
+              class="relative border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition duration-300"
+            >
+              <input
+                type="file"
+                id="fileInput"
+                accept=".csv, .xlsx, .xls"
+                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                onchange="handleFileSelect(event)"
+              />
+              <i class="fas fa-file-upload text-4xl text-blue-500 mb-3"></i>
+              <p class="text-gray-700 mb-1 text-center">
+                Drop file CSV/Excel atau klik untuk upload
+              </p>
+              <p id="fileName" class="text-sm text-gray-500">
+                Belum ada file yang dipilih
+              </p>
+            </div>
+          </div>
+          <div class="w-full md:w-1/3">
+            <div class="h-full flex flex-col justify-center">
+              <button
+                id="processFileBtn"
+                disabled
+                class="bg-blue-600 text-white px-4 py-3 rounded-lg font-medium mb-3 hover:bg-blue-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <i class="fas fa-cogs mr-2"></i>Proses File
+              </button>
+              <div id="lastUpdate" class="text-sm text-gray-600">
+                Terakhir diperbarui: <span id="lastUpdateTime">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8 rounded-lg">
+        <div class="flex items-start">
+          <div class="flex-shrink-0">
+            <i class="fas fa-info-circle text-blue-600 mt-1"></i>
+          </div>
+          <div class="ml-3">
+            <h3 class="text-sm font-medium text-blue-800">
+              Panduan Penggunaan Data
+            </h3>
+            <div class="mt-2 text-sm text-blue-700">
+              <p>Untuk memastikan data konsisten antar pengguna:</p>
+              <ol class="list-decimal pl-5 mt-1 space-y-1">
+                <li>
+                  Saat Anda mengupload file CSV/Excel, sistem akan otomatis
+                  mengunduh file JSON dengan data yang telah diproses.
+                </li>
+                <li>
+                  Simpan file JSON tersebut ke lokasi bersama yang dapat diakses
+                  oleh semua pengguna.
+                </li>
+                <li>
+                  Pengguna lain dapat menggunakan tombol "Impor JSON" untuk
+                  menggunakan data yang sama.
+                </li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dashboard Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div
+          class="dashboard-card bg-white rounded-lg shadow-md overflow-hidden"
+        >
+          <div class="p-4 bg-blue-600 text-white">
+            <h3 class="font-semibold">Total Mahasiswa</h3>
+          </div>
+          <div class="p-6 flex items-center">
+            <div class="rounded-full bg-blue-100 p-3 mr-4">
+              <i class="fas fa-users text-xl text-blue-600"></i>
+            </div>
+            <div>
+              <span id="totalStudents" class="text-2xl font-bold text-gray-800"
+                >0</span
+              >
+              <p class="text-sm text-gray-500">Mahasiswa</p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="dashboard-card bg-white rounded-lg shadow-md overflow-hidden"
+        >
+          <div class="p-4 bg-green-600 text-white">
+            <h3 class="font-semibold">Sudah Mengumpulkan</h3>
+          </div>
+          <div class="p-6 flex items-center">
+            <div class="rounded-full bg-green-100 p-3 mr-4">
+              <i class="fas fa-check-circle text-xl text-green-600"></i>
+            </div>
+            <div>
+              <span id="submittedCount" class="text-2xl font-bold text-gray-800"
+                >0</span
+              >
+              <p class="text-sm text-gray-500">Laporan</p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="dashboard-card bg-white rounded-lg shadow-md overflow-hidden"
+        >
+          <div class="p-4 bg-yellow-600 text-white">
+            <h3 class="font-semibold">Penilaian Selesai</h3>
+          </div>
+          <div class="p-6 flex items-center">
+            <div class="rounded-full bg-yellow-100 p-3 mr-4">
+              <i class="fas fa-star text-xl text-yellow-600"></i>
+            </div>
+            <div>
+              <span id="gradedCount" class="text-2xl font-bold text-gray-800"
+                >0</span
+              >
+              <p class="text-sm text-gray-500">Penilaian</p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="dashboard-card bg-white rounded-lg shadow-md overflow-hidden"
+        >
+          <div class="p-4 bg-purple-600 text-white">
+            <h3 class="font-semibold">Kelompok</h3>
+          </div>
+          <div class="p-6 flex items-center">
+            <div class="rounded-full bg-purple-100 p-3 mr-4">
+              <i class="fas fa-user-friends text-xl text-purple-600"></i>
+            </div>
+            <div>
+              <span id="groupCount" class="text-2xl font-bold text-gray-800"
+                >0</span
+              >
+              <p class="text-sm text-gray-500">Kelompok</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data Table Section -->
+      <div class="bg-white rounded-lg shadow-md overflow-hidden mb-8">
+        <div class="p-4 bg-gray-50 border-b flex justify-between items-center">
+          <h2 class="text-xl font-semibold text-gray-800">
+            Data Pengumpulan Laporan
+          </h2>
+          <div class="flex items-center space-x-4">
+            <div class="relative">
+              <input
+                type="text"
+                id="searchInput"
+                placeholder="Cari..."
+                class="border border-gray-300 rounded-lg px-4 py-2 pr-10 focus:outline-none focus:border-blue-500"
+              />
+              <i class="fas fa-search absolute right-3 top-3 text-gray-400"></i>
+            </div>
+            <div>
+              <select
+                id="filterKelas"
+                class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
+              >
+                <option value="all">Semua Kelas</option>
+              </select>
+            </div>
+            <div>
+              <select
+                id="filterLaporan"
+                class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
+              >
+                <option value="all">Semua Laporan</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th
+                  scope="col"
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  No
+                </th>
+                <th
+                  scope="col"
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Nama
+                </th>
+                <th
+                  scope="col"
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Kelas
+                </th>
+                <th
+                  scope="col"
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Laporan Ke-
+                </th>
+                <th
+                  scope="col"
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  List Anggota Kelompok
+                </th>
+                <th
+                  scope="col"
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Waktu Mulai
+                </th>
+                <th
+                  scope="col"
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Waktu Selesai
+                </th>
+                <th
+                  scope="col"
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Status
+                </th>
+                <th
+                  scope="col"
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Link
+                </th>
+              </tr>
+            </thead>
+            <tbody id="dataTable" class="bg-white divide-y divide-gray-200">
+              <!-- Data rows will be populated here -->
+              <tr>
+                <td colspan="8" class="px-6 py-4 text-center text-gray-500">
+                  Silahkan upload file untuk melihat data
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="p-4 bg-gray-50 border-t flex justify-between items-center">
+          <div class="text-sm text-gray-700">
+            Menampilkan <span id="currentCount">0</span> dari
+            <span id="totalCount">0</span> data
+          </div>
+          <div class="flex items-center space-x-2">
+            <button
+              id="prevPage"
+              class="px-3 py-1 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              disabled
+            >
+              <i class="fas fa-chevron-left"></i>
+            </button>
+            <span id="pagination" class="text-sm text-gray-700"
+              >Halaman 0 dari 0</span
+            >
+            <button
+              id="nextPage"
+              class="px-3 py-1 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              disabled
+            >
+              <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group Summary Section -->
+      <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="p-4 bg-gray-50 border-b">
+          <h2 class="text-xl font-semibold text-gray-800">
+            Ringkasan Kelompok
+          </h2>
+        </div>
+        <div class="p-6">
+          <div
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            id="groupSummary"
+          >
+            <!-- Group summary cards will be populated here -->
+            <div class="text-center text-gray-500 col-span-3">
+              Silahkan upload file untuk melihat data kelompok
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-6">
+      <div class="container mx-auto px-4">
+        <div class="flex flex-col md:flex-row justify-between items-center">
+          <div class="mb-4 md:mb-0">
+            <p>© 2025 Dashboard Pengumpulan Laporan Praktikum</p>
+            <p class="text-gray-400 text-sm">Prodi Bisnis Digital</p>
+          </div>
+          <div class="flex space-x-4">
+            <a href="#" class="hover:text-blue-400 transition duration-300">
+              <i class="fab fa-github"></i>
+            </a>
+            <a href="#" class="hover:text-blue-400 transition duration-300">
+              <i class="fab fa-linkedin"></i>
+            </a>
+            <a href="#" class="hover:text-blue-400 transition duration-300">
+              <i class="fas fa-envelope"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Settings Modal -->
+    <div
+      id="settingsModal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
+    >
+      <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xl font-semibold text-gray-800">
+            Pengaturan Dashboard
+          </h3>
+          <button
+            id="closeSettingsBtn"
+            class="text-gray-400 hover:text-gray-600"
+          >
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="mb-4">
+          <label
+            class="block text-gray-700 text-sm font-bold mb-2"
+            for="itemsPerPage"
+          >
+            Item per halaman
+          </label>
+          <select
+            id="itemsPerPage"
+            class="border rounded w-full py-2 px-3 text-gray-700 focus:outline-none focus:border-blue-500"
+          >
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+        <div class="mb-4">
+          <label
+            class="block text-gray-700 text-sm font-bold mb-2"
+            for="darkMode"
+          >
+            Mode Gelap
+          </label>
+          <div class="flex items-center">
+            <label
+              class="toggle-btn relative inline-block w-10 h-5 bg-gray-300 rounded-full cursor-pointer transition-colors duration-300"
+            >
+              <input type="checkbox" id="darkMode" class="sr-only" />
+              <span
+                class="toggle-slider absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-300"
+              ></span>
+            </label>
+            <span class="ml-3 text-sm text-gray-700">Nonaktif</span>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label
+            class="block text-gray-700 text-sm font-bold mb-2"
+            for="columns"
+          >
+            Kolom yang ditampilkan
+          </label>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="inline-flex items-center">
+                <input
+                  type="checkbox"
+                  class="column-toggle"
+                  value="name"
+                  checked
+                />
+                <span class="ml-2">Nama</span>
+              </label>
+            </div>
+            <div>
+              <label class="inline-flex items-center">
+                <input
+                  type="checkbox"
+                  class="column-toggle"
+                  value="class"
+                  checked
+                />
+                <span class="ml-2">Kelas</span>
+              </label>
+            </div>
+            <div>
+              <label class="inline-flex items-center">
+                <input
+                  type="checkbox"
+                  class="column-toggle"
+                  value="group"
+                  checked
+                />
+                <span class="ml-2">Kelompok</span>
+              </label>
+            </div>
+            <div>
+              <label class="inline-flex items-center">
+                <input
+                  type="checkbox"
+                  class="column-toggle"
+                  value="startTime"
+                  checked
+                />
+                <span class="ml-2">Waktu Mulai</span>
+              </label>
+            </div>
+            <div>
+              <label class="inline-flex items-center">
+                <input
+                  type="checkbox"
+                  class="column-toggle"
+                  value="endTime"
+                  checked
+                />
+                <span class="ml-2">Waktu Selesai</span>
+              </label>
+            </div>
+            <div>
+              <label class="inline-flex items-center">
+                <input
+                  type="checkbox"
+                  class="column-toggle"
+                  value="status"
+                  checked
+                />
+                <span class="ml-2">Status</span>
+              </label>
+            </div>
+            <div>
+              <label class="inline-flex items-center">
+                <input
+                  type="checkbox"
+                  class="column-toggle"
+                  value="link"
+                  checked
+                />
+                <span class="ml-2">Link</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end">
+          <button
+            id="saveSettingsBtn"
+            class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition duration-300"
+          >
+            Simpan
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div
+      id="loadingOverlay"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
+    >
+      <div class="bg-white p-6 rounded-lg shadow-lg flex items-center">
+        <div
+          class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mr-4"
+        ></div>
+        <div>
+          <h3 class="text-lg font-semibold">Memproses Data</h3>
+          <p class="text-sm text-gray-600">Mohon tunggu sebentar...</p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // State management
+      let appState = {
+        originalData: [],
+        filteredData: [],
+        currentPage: 1,
+        itemsPerPage: 10,
+        totalPages: 0,
+        kelasOptions: [],
+        laporanOptions: [],
+        groupData: {},
+      };
+
+      // DOM Elements
+      const fileInput = document.getElementById("fileInput");
+      const fileName = document.getElementById("fileName");
+      const processFileBtn = document.getElementById("processFileBtn");
+      const dataTable = document.getElementById("dataTable");
+      const searchInput = document.getElementById("searchInput");
+      const filterKelas = document.getElementById("filterKelas");
+      const filterLaporan = document.getElementById("filterLaporan");
+      const prevPageBtn = document.getElementById("prevPage");
+      const nextPageBtn = document.getElementById("nextPage");
+      const paginationText = document.getElementById("pagination");
+      const currentCountText = document.getElementById("currentCount");
+      const totalCountText = document.getElementById("totalCount");
+      const settingsBtn = document.getElementById("settingsBtn");
+      const closeSettingsBtn = document.getElementById("closeSettingsBtn");
+      const settingsModal = document.getElementById("settingsModal");
+      const saveSettingsBtn = document.getElementById("saveSettingsBtn");
+      const itemsPerPageSelect = document.getElementById("itemsPerPage");
+      const darkModeToggle = document.getElementById("darkMode");
+      const loadingOverlay = document.getElementById("loadingOverlay");
+      const lastUpdateTime = document.getElementById("lastUpdateTime");
+      const refreshBtn = document.getElementById("refreshBtn");
+      const groupSummary = document.getElementById("groupSummary");
+      const exportJsonBtn = document.getElementById("exportJsonBtn");
+      const importJsonBtn = document.getElementById("importJsonBtn");
+      const jsonFileInput = document.getElementById("jsonFileInput");
+
+      // Stats elements
+      const totalStudentsEl = document.getElementById("totalStudents");
+      const submittedCountEl = document.getElementById("submittedCount");
+      const gradedCountEl = document.getElementById("gradedCount");
+      const groupCountEl = document.getElementById("groupCount");
+
+      // File Input Accepted Formats
+      fileInput.accept = ".csv, .xlsx, .xls, .json";
+
+      // Event Listeners
+      document.addEventListener("DOMContentLoaded", function () {
+        // Initialize settings from localStorage if available
+        initializeSettings();
+
+        // Check for saved data
+        loadSavedData();
+      });
+
+      fileInput.addEventListener("change", handleFileSelect);
+      processFileBtn.addEventListener("click", processFile);
+      searchInput.addEventListener("input", filterData);
+      filterKelas.addEventListener("change", filterData);
+      filterLaporan.addEventListener("change", filterData);
+      prevPageBtn.addEventListener("click", goToPrevPage);
+      nextPageBtn.addEventListener("click", goToNextPage);
+      settingsBtn.addEventListener("click", openSettingsModal);
+      closeSettingsBtn.addEventListener("click", closeSettingsModal);
+      saveSettingsBtn.addEventListener("click", saveSettings);
+      refreshBtn.addEventListener("click", refreshData);
+      exportJsonBtn.addEventListener("click", function () {
+        if (appState.originalData.length > 0) {
+          exportToJsonFile(appState.originalData);
+        } else {
+          alert(
+            "Tidak ada data yang bisa diekspor. Silakan unggah file data terlebih dahulu."
+          );
+        }
+      });
+
+      importJsonBtn.addEventListener("click", function () {
+        jsonFileInput.click();
+      });
+
+      jsonFileInput.addEventListener("change", function (event) {
+        const file = event.target.files[0];
+        if (file) {
+          showLoading();
+          importFromJsonFile(file)
+            .then((data) => {
+              appState.originalData = data;
+
+              // Extract kelas options
+              const kelasSet = new Set();
+              data.forEach((item) => {
+                if (item.kelas) {
+                  kelasSet.add(item.kelas);
+                }
+              });
+              appState.kelasOptions = Array.from(kelasSet).sort();
+
+              // Extract laporan options
+              const laporanSet = new Set();
+              data.forEach((item) => {
+                if (item.laporan) {
+                  laporanSet.add(item.laporan);
+                }
+              });
+              appState.laporanOptions = Array.from(laporanSet).sort();
+
+              // Update filters
+              updateKelasFilter();
+              updateLaporanFilter();
+
+              // Process group data
+              processGroupData();
+
+              // Update stats
+              updateStats();
+
+              // Filter and render data
+              filterData();
+
+              // Update last update time
+              const lastUpdateStr = new Date().toLocaleString("id-ID");
+              lastUpdateTime.textContent = lastUpdateStr;
+              localStorage.setItem("lastUpdate", lastUpdateStr);
+
+              // Save to localStorage for backward compatibility
+              localStorage.setItem("dashboardData", JSON.stringify(data));
+
+              hideLoading();
+              alert("Data berhasil diimpor dari file JSON!");
+            })
+            .catch((error) => {
+              hideLoading();
+              alert("Error: " + error.message);
+            });
+        }
+      });
+
+      // Event handler for settings modal close when clicking outside
+      window.addEventListener("click", function (event) {
+        if (event.target === settingsModal) {
+          closeSettingsModal();
+        }
+      });
+
+      // File handling functions
+      function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (file) {
+          fileName.textContent = file.name;
+          processFileBtn.disabled = false;
+        }
+      }
+
+      function processFile() {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        showLoading();
+
+        setTimeout(() => {
+          const fileReader = new FileReader();
+
+          fileReader.onload = function (event) {
+            const data = event.target.result;
+
+            try {
+              let parsedData;
+
+              if (file.name.endsWith(".json")) {
+                // Jika file adalah JSON
+                parsedData = JSON.parse(data);
+                processData(parsedData);
+              } else if (file.name.endsWith(".csv")) {
+                // Jika file adalah CSV
+                parsedData = parseCSV(data);
+                processData(parsedData);
+                // Simpan data sebagai JSON setelah diproses
+                exportToJsonFile(appState.originalData);
+              } else if (
+                file.name.endsWith(".xlsx") ||
+                file.name.endsWith(".xls")
+              ) {
+                // Jika file adalah Excel
+                parsedData = parseExcel(data);
+                processData(parsedData);
+                // Simpan data sebagai JSON setelah diproses
+                exportToJsonFile(appState.originalData);
+              } else {
+                alert(
+                  "Format file tidak didukung. Silakan gunakan file CSV, Excel, atau JSON."
+                );
+                hideLoading();
+                return;
+              }
+
+              hideLoading();
+
+              // Simpan juga ke localStorage untuk backward compatibility
+              localStorage.setItem(
+                "dashboardData",
+                JSON.stringify(appState.originalData)
+              );
+              localStorage.setItem(
+                "lastUpdate",
+                new Date().toLocaleString("id-ID")
+              );
+              lastUpdateTime.textContent = new Date().toLocaleString("id-ID");
+            } catch (error) {
+              console.error("Error processing file:", error);
+              alert(
+                "Terjadi kesalahan saat memproses file. Pastikan format file sesuai."
+              );
+              hideLoading();
+            }
+          };
+
+          if (file.name.endsWith(".json") || file.name.endsWith(".csv")) {
+            fileReader.readAsText(file);
+          } else {
+            fileReader.readAsArrayBuffer(file);
+          }
+        }, 500);
+      }
+
+      function parseCSV(data) {
+        const results = Papa.parse(data, {
+          header: true,
+          skipEmptyLines: true,
+          dynamicTyping: true,
+        });
+
+        return results.data;
+      }
+
+      function parseExcel(data) {
+        const arrayBuffer = data;
+        const workbook = XLSX.read(arrayBuffer, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+
+        return XLSX.utils.sheet_to_json(worksheet, { raw: false });
+      }
+
+      function processData(data) {
+        const transformedData = data.map((item, index) => {
+          const cleanedItem = {};
+          Object.keys(item).forEach((key) => {
+            const cleanKey = key
+              .trim()
+              .toLowerCase()
+              .replace(/[\s-]+/g, "_");
+            cleanedItem[cleanKey] = item[key];
+          });
+
+          // Handle different column name possibilities
+          const id = cleanedItem.id || cleanedItem.no || index + 1;
+          const name = cleanedItem.name || cleanedItem.nama || "";
+          const kelas = cleanedItem.kelas || cleanedItem.class || "";
+          const kelompok =
+            cleanedItem["list_anggota_kelompok_(nama_+_nim)"] ||
+            cleanedItem.list_anggota_kelompok ||
+            cleanedItem.kelompok ||
+            "";
+          const startTime =
+            cleanedItem.start_time || cleanedItem.waktu_mulai || "";
+          const endTime =
+            cleanedItem.completion_time || cleanedItem.waktu_selesai || "";
+          const email = cleanedItem.email || "";
+          const laporan = cleanedItem.laporan_ke_ || cleanedItem.laporan || "";
+          const laporanPraktikum =
+            cleanedItem.laporan_praktikum || cleanedItem.link || "";
+
+          return {
+            id,
+            name,
+            kelas,
+            kelompok,
+            startTime,
+            endTime,
+            email,
+            laporan,
+            laporanPraktikum,
+            status: endTime ? "Selesai" : "Belum Selesai",
+          };
+        });
+
+        appState.originalData = transformedData;
+
+        // Extract kelas options
+        const kelasSet = new Set();
+        transformedData.forEach((item) => {
+          if (item.kelas) {
+            kelasSet.add(item.kelas);
+          }
+        });
+
+        appState.kelasOptions = Array.from(kelasSet).sort();
+
+        // Extract laporan options
+        const laporanSet = new Set();
+        transformedData.forEach((item) => {
+          if (item.laporan) {
+            laporanSet.add(item.laporan);
+          }
+        });
+
+        appState.laporanOptions = Array.from(laporanSet).sort();
+
+        // Update kelas filter options
+        updateKelasFilter();
+
+        // Update laporan filter options
+        updateLaporanFilter();
+
+        // Process group data
+        processGroupData();
+
+        // Update stats
+        updateStats();
+
+        // Filter and render data
+        filterData();
+      }
+
+      function processGroupData() {
+        // Reset group data
+        appState.groupData = {};
+
+        // Group students by their kelompok
+        appState.originalData.forEach((item) => {
+          const kelompokInfo = item.kelompok || "Tidak ada kelompok";
+
+          if (!appState.groupData[kelompokInfo]) {
+            appState.groupData[kelompokInfo] = {
+              members: [],
+              submittedCount: 0,
+            };
+          }
+
+          appState.groupData[kelompokInfo].members.push({
+            name: item.name,
+            status: item.status,
+            laporan: item.laporan,
+          });
+
+          if (item.status === "Selesai") {
+            appState.groupData[kelompokInfo].submittedCount++;
+          }
+        });
+
+        // Render group summary
+        renderGroupSummary();
+      }
+
+      function renderGroupSummary() {
+        let html = "";
+
+        // Sort groups by key
+        const sortedGroups = Object.keys(appState.groupData).sort();
+
+        sortedGroups.forEach((groupKey) => {
+          const group = appState.groupData[groupKey];
+          const memberCount = group.members.length;
+          const submittedCount = group.submittedCount;
+          const completionPercentage =
+            memberCount > 0
+              ? Math.round((submittedCount / memberCount) * 100)
+              : 0;
+
+          // Determine card color based on completion percentage
+          let colorClass;
+          if (completionPercentage >= 100) {
+            colorClass = "border-green-500";
+          } else if (completionPercentage >= 50) {
+            colorClass = "border-yellow-500";
+          } else {
+            colorClass = "border-red-500";
+          }
+
+          html += `
+                <div class="border-l-4 ${colorClass} bg-white p-4 rounded shadow">
+                    <h3 class="font-semibold text-gray-800 mb-2">${groupKey.replace(
+                      /\n/g,
+                      "<br>"
+                    )}</h3>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm text-gray-600">Progress:</span>
+                        <span class="text-sm font-medium">${submittedCount}/${memberCount} (${completionPercentage}%)</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-blue-600 h-2 rounded-full" style="width: ${completionPercentage}%"></div>
+                    </div>
+                    <div class="mt-3">
+                        <h4 class="text-xs font-semibold text-gray-700 mb-1">Anggota:</h4>
+                        <ul class="text-xs space-y-1">
+                            ${group.members
+                              .map(
+                                (member) => `
+                                <li class="flex items-center">
+                                    <span class="w-2 h-2 rounded-full ${
+                                      member.status === "Selesai"
+                                        ? "bg-green-500"
+                                        : "bg-red-500"
+                                    } mr-2"></span>
+                                    ${member.name}
+                                </li>
+                            `
+                              )
+                              .join("")}
+                        </ul>
+                    </div>
+                </div>
+                `;
+        });
+
+        if (html === "") {
+          html = `<div class="text-center text-gray-500 col-span-3">Belum ada data kelompok tersedia</div>`;
+        }
+
+        groupSummary.innerHTML = html;
+      }
+
+      // Filter and pagination functions
+      function filterData() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const kelasFilter = filterKelas.value;
+        const laporanFilter = filterLaporan.value;
+
+        appState.filteredData = appState.originalData.filter((item) => {
+          // Search in all properties of the item
+          const searchMatch = Object.values(item).some(
+            (value) =>
+              value &&
+              typeof value === "string" &&
+              value.toLowerCase().includes(searchTerm)
+          );
+
+          const kelasMatch =
+            kelasFilter === "all" || item.kelas === kelasFilter;
+          const laporanMatch =
+            laporanFilter === "all" || item.laporan === laporanFilter;
+
+          return searchMatch && kelasMatch && laporanMatch;
+        });
+
+        // Reset to first page when filtering
+        appState.currentPage = 1;
+
+        // Update pagination
+        updatePagination();
+
+        // Render table
+        renderTable();
+      }
+
+      function updatePagination() {
+        appState.totalPages = Math.ceil(
+          appState.filteredData.length / appState.itemsPerPage
+        );
+
+        // Update UI elements
+        paginationText.textContent = `Halaman ${appState.currentPage} dari ${
+          appState.totalPages || 1
+        }`;
+        prevPageBtn.disabled = appState.currentPage === 1;
+        nextPageBtn.disabled = appState.currentPage >= appState.totalPages;
+
+        totalCountText.textContent = appState.filteredData.length;
+        const start = (appState.currentPage - 1) * appState.itemsPerPage;
+        const end = Math.min(
+          start + appState.itemsPerPage,
+          appState.filteredData.length
+        );
+        currentCountText.textContent = `${start + 1}-${end}`;
+      }
+
+      function goToPrevPage() {
+        if (appState.currentPage > 1) {
+          appState.currentPage--;
+          updatePagination();
+          renderTable();
+        }
+      }
+
+      function goToNextPage() {
+        if (appState.currentPage < appState.totalPages) {
+          appState.currentPage++;
+          updatePagination();
+          renderTable();
+        }
+      }
+
+      // Rendering functions
+      function renderTable() {
+        const start = (appState.currentPage - 1) * appState.itemsPerPage;
+        const end = Math.min(
+          start + appState.itemsPerPage,
+          appState.filteredData.length
+        );
+        const pageData = appState.filteredData.slice(start, end);
+
+        if (pageData.length === 0) {
+          dataTable.innerHTML = `
+                <tr>
+                    <td colspan="8" class="px-6 py-4 text-center text-gray-500">
+                        Tidak ada data yang ditemukan
+                    </td>
+                </tr>`;
+          return;
+        }
+
+        let html = "";
+
+        pageData.forEach((item, index) => {
+          const rowIndex = start + index + 1;
+
+          html += `
+                <tr class="${
+                  index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                } hover:bg-blue-50 transition-colors duration-150">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${rowIndex}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${
+                      item.name
+                    }</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${
+                      item.kelas
+                    }</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${
+                      item.laporan
+                    }</td>
+                    <td class="px-6 py-4 text-sm text-gray-700">${
+                      item.kelompok ? item.kelompok.replace(/\n/g, "<hr>") : ""
+                    }</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${formatDateTime(
+                      item.startTime
+                    )}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${formatDateTime(
+                      item.endTime
+                    )}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          item.status === "Selesai"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }">
+                            ${item.status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:text-blue-800">
+                        ${
+                          item.laporanPraktikum
+                            ? `<a href="${item.laporanPraktikum}" target="_blank" class="hover:underline flex items-center"><i class="fas fa-external-link-alt mr-1"></i> Lihat</a>`
+                            : "-"
+                        }
+                    </td>
+                </tr>`;
+        });
+
+        dataTable.innerHTML = html;
+      }
+
+      function updateKelasFilter() {
+        // Clear existing options except 'all'
+        while (filterKelas.options.length > 1) {
+          filterKelas.remove(1);
+        }
+
+        // Add new options
+        appState.kelasOptions.forEach((kelas) => {
+          const option = document.createElement("option");
+          option.value = kelas;
+          option.textContent = kelas;
+          filterKelas.appendChild(option);
+        });
+      }
+
+      function updateLaporanFilter() {
+        // Clear existing options except 'all'
+        while (filterLaporan.options.length > 1) {
+          filterLaporan.remove(1);
+        }
+
+        // Add new options
+        appState.laporanOptions.forEach((laporan) => {
+          const option = document.createElement("option");
+          option.value = laporan;
+          option.textContent = laporan;
+          filterLaporan.appendChild(option);
+        });
+      }
+
+      function updateStats() {
+        // Total students
+        totalStudentsEl.textContent = appState.originalData.length;
+
+        // Submitted count
+        const submittedCount = appState.originalData.filter(
+          (item) => item.status === "Selesai"
+        ).length;
+        submittedCountEl.textContent = submittedCount;
+
+        // Group count
+        const uniqueGroups = new Set();
+        appState.originalData.forEach((item) => {
+          if (item.kelompok) {
+            uniqueGroups.add(item.kelompok);
+          }
+        });
+        groupCountEl.textContent = uniqueGroups.size;
+
+        // Graded count - assuming all submitted are graded for now
+        gradedCountEl.textContent = submittedCount;
+      }
+
+      // Utility functions
+      function formatDateTime(dateTimeStr) {
+        if (!dateTimeStr) return "-";
+
+        // Try to parse the datetime string
+        try {
+          // Check if the format is already readable
+          if (dateTimeStr.includes("/") && dateTimeStr.includes(":")) {
+            return dateTimeStr;
+          }
+
+          // Try to parse as Date object
+          const date = new Date(dateTimeStr);
+          if (!isNaN(date.getTime())) {
+            return date.toLocaleString("id-ID");
+          }
+
+          return dateTimeStr;
+        } catch (error) {
+          return dateTimeStr;
+        }
+      }
+
+      // Settings functions
+      function initializeSettings() {
+        // Load items per page setting
+        const savedItemsPerPage = localStorage.getItem("itemsPerPage");
+        if (savedItemsPerPage) {
+          appState.itemsPerPage = parseInt(savedItemsPerPage);
+          itemsPerPageSelect.value = savedItemsPerPage;
+        }
+
+        // Load dark mode setting
+        const darkMode = localStorage.getItem("darkMode") === "true";
+        darkModeToggle.checked = darkMode;
+        if (darkMode) {
+          document.body.classList.add("dark-mode");
+          // Apply dark mode styles
+        }
+
+        // Load column visibility settings
+        const columnSettings = localStorage.getItem("columnSettings");
+        if (columnSettings) {
+          const settings = JSON.parse(columnSettings);
+          document.querySelectorAll(".column-toggle").forEach((checkbox) => {
+            checkbox.checked = settings[checkbox.value] !== false;
+          });
+
+          // Apply column visibility
+          applyColumnVisibility();
+        }
+      }
+
+      function saveSettings() {
+        // Save items per page
+        const newItemsPerPage = parseInt(itemsPerPageSelect.value);
+        localStorage.setItem("itemsPerPage", newItemsPerPage);
+        appState.itemsPerPage = newItemsPerPage;
+
+        // Save dark mode setting
+        const darkMode = darkModeToggle.checked;
+        localStorage.setItem("darkMode", darkMode);
+
+        // Save column visibility settings
+        const columnSettings = {};
+        document.querySelectorAll(".column-toggle").forEach((checkbox) => {
+          columnSettings[checkbox.value] = checkbox.checked;
+        });
+        localStorage.setItem("columnSettings", JSON.stringify(columnSettings));
+
+        // Apply column visibility
+        applyColumnVisibility();
+
+        // Update pagination and table
+        updatePagination();
+        renderTable();
+
+        // Close modal
+        closeSettingsModal();
+      }
+
+      function applyColumnVisibility() {
+        const columnSettings = JSON.parse(
+          localStorage.getItem("columnSettings")
+        );
+
+        // Apply visibility settings to table headers and rows
+        const headers = dataTable.querySelectorAll("th");
+        const rows = dataTable.querySelectorAll("tr");
+
+        headers.forEach((header, index) => {
+          const columnName = header.textContent.trim().toLowerCase();
+          if (columnSettings[columnName] === false) {
+            header.style.display = "none";
+            rows.forEach((row) => {
+              row.cells[index].style.display = "none";
+            });
+          } else {
+            header.style.display = "";
+            rows.forEach((row) => {
+              row.cells[index].style.display = "";
+            });
+          }
+        });
+      }
+
+      function openSettingsModal() {
+        settingsModal.classList.remove("hidden");
+      }
+
+      function closeSettingsModal() {
+        settingsModal.classList.add("hidden");
+      }
+
+      // Loading state functions
+      function showLoading() {
+        loadingOverlay.classList.remove("hidden");
+      }
+
+      function hideLoading() {
+        loadingOverlay.classList.add("hidden");
+      }
+
+      // Data persistence functions
+      function loadSavedData() {
+        const savedData = localStorage.getItem("dashboardData");
+        const lastUpdate = localStorage.getItem("lastUpdate");
+
+        if (savedData) {
+          try {
+            appState.originalData = JSON.parse(savedData);
+
+            // Extract kelas options
+            const kelasSet = new Set();
+            appState.originalData.forEach((item) => {
+              if (item.kelas) {
+                kelasSet.add(item.kelas);
+              }
+            });
+
+            appState.kelasOptions = Array.from(kelasSet).sort();
+
+            // Extract laporan options
+            const laporanSet = new Set();
+            appState.originalData.forEach((item) => {
+              if (item.laporan) {
+                laporanSet.add(item.laporan);
+              }
+            });
+
+            appState.laporanOptions = Array.from(laporanSet).sort();
+
+            // Update kelas filter options
+            updateKelasFilter();
+
+            // Update laporan filter options
+            updateLaporanFilter();
+
+            // Process group data
+            processGroupData();
+
+            // Update stats
+            updateStats();
+
+            // Filter and render data
+            filterData();
+
+            // Update last update time
+            if (lastUpdate) {
+              lastUpdateTime.textContent = lastUpdate;
+            }
+          } catch (error) {
+            console.error("Error loading saved data:", error);
+          }
+        }
+      }
+
+      function refreshData() {
+        if (appState.originalData.length > 0) {
+          filterData();
+          processGroupData();
+          updateStats();
+        }
+      }
+
+      function exportToJsonFile(data) {
+        const jsonData = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonData], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "laporan_praktikum_data.json";
+
+        document.body.appendChild(a);
+        a.click();
+
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      function importFromJsonFile(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+
+          reader.onload = function (event) {
+            try {
+              const jsonData = JSON.parse(event.target.result);
+              resolve(jsonData);
+            } catch (error) {
+              reject(new Error("Format file JSON tidak valid"));
+            }
+          };
+
+          reader.onerror = function () {
+            reject(new Error("Gagal membaca file"));
+          };
+
+          reader.readAsText(file);
+        });
+      }
+    </script>
+  </body>
+</html>
